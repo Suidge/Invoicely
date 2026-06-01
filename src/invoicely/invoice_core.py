@@ -962,14 +962,16 @@ def build_excel(results: list[InvoiceResult], folder: Path, report_currency: str
                 "原币种": item.original_currency,
                 "原金额": round(item.amount_original, 2),
                 "原文件名": item.original_name,
-                "新文件名": item.new_name,
+                "文件名": item.new_name,
                 "发票类型": item.invoice_type,
             }
         )
 
     excel_path = folder / "发票报销统计表.xlsx"
     amount_col = f"金额({report_currency})"
-    df = pd.DataFrame(rows, columns=["年份", "月份", "日期", "Category", amount_col, "原币种", "原金额", "原文件名", "新文件名", "发票类型"])
+    df = pd.DataFrame(rows, columns=["年份", "月份", "日期", "Category", amount_col, "原币种", "原金额", "原文件名", "文件名", "发票类型"])
+    from openpyxl.styles import Border, Side
+
     with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="报销统计")
         sheet = writer.book["报销统计"]
@@ -987,6 +989,23 @@ def build_excel(results: list[InvoiceResult], folder: Path, report_currency: str
         }
         for col, width in widths.items():
             sheet.column_dimensions[col].width = width
+
+        sheet.column_dimensions["H"].hidden = True
+
+        thin = Side(style="thin")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+        for row in sheet.iter_rows(min_row=1, max_row=sheet.max_row, max_col=sheet.max_column):
+            for cell in row:
+                cell.border = border
+
+        sum_row = sheet.max_row + 1
+        amount_col_letter = "E"
+        sheet[f"{amount_col_letter}{sum_row}"] = f"=SUM({amount_col_letter}2:{amount_col_letter}{sum_row - 1})"
+        sheet[f"{amount_col_letter}{sum_row}"].border = border
+
+        sheet.page_setup.orientation = "landscape"
+        sheet.page_setup.fitToWidth = 1
+        sheet.page_setup.fitToHeight = 0
     return excel_path
 
 
